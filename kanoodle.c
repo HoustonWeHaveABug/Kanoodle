@@ -5,7 +5,7 @@
 
 #define FREE(p) free(p), p = NULL
 
-struct piece_s {
+typedef struct {
 	unsigned long number;
 	unsigned long rows;
 	unsigned long row_slots;
@@ -19,17 +19,17 @@ struct piece_s {
 	unsigned long *node_blocks;
 	unsigned long *grid_blocks;
 	unsigned long row_nodes_n;
-};
-typedef struct piece_s piece_t;
+}
+piece_t;
 
 typedef struct node_s node_t;
 
-struct row_node_s {
+typedef struct {
 	unsigned long grid_origin;
 	piece_t *piece;
 	node_t *column;
-};
-typedef struct row_node_s row_node_t;
+}
+row_node_t;
 
 struct node_s {
 	union {
@@ -63,9 +63,8 @@ void add_piece(piece_t *, unsigned long);
 void cover_column(node_t *);
 void uncover_column(node_t *);
 
-static unsigned long grid_rows, grid_columns1, grid_columns2, grid_cells_n1, cost, solutions;
-
 static char *grid_cells;
+static unsigned long grid_rows, grid_columns1, grid_columns2, grid_cells_n1, cost, solutions;
 static piece_t *pieces;
 static row_node_t *row_nodes;
 static node_t *nodes, **tops, *header, *row_node;
@@ -73,12 +72,7 @@ static node_t *nodes, **tops, *header, *row_node;
 int main(void) {
 int r;
 unsigned long grid_cells_n2, pieces_n, pieces_max, column_nodes_n1, column_nodes_n2, row_nodes_n, pieces_r, piece_f, piece_l, nodes_n, i, j, k;
-	scanf("%lu", &grid_rows);
-	if (!grid_rows) {
-		return EXIT_FAILURE;
-	}
-	scanf("%lu", &grid_columns1);
-	if (!grid_columns1) {
+	if (scanf("%lu%lu", &grid_rows, &grid_columns1) != 2 || !grid_rows || !grid_columns1) {
 		return EXIT_FAILURE;
 	}
 	grid_cells_n1 = grid_rows*grid_columns1;
@@ -86,20 +80,20 @@ unsigned long grid_cells_n2, pieces_n, pieces_max, column_nodes_n1, column_nodes
 	grid_cells_n2 = grid_rows*grid_columns2;
 	grid_cells = malloc(grid_cells_n2+1);
 	if (!grid_cells) {
-		free_data(0UL);
 		return EXIT_FAILURE;
 	}
 	for (i = grid_columns1; i < grid_cells_n2; i += grid_columns2) {
 		grid_cells[i] = '\n';
 	}
 	grid_cells[grid_cells_n2] = 0;
-	scanf("%lu", &pieces_n);
-	if (!pieces_n) {
+	if (scanf("%lu", &pieces_n) != 1 || !pieces_n) {
+		free_data(0UL);
 		return EXIT_FAILURE;
 	}
 	pieces_max = pieces_n*8;
 	pieces = malloc(sizeof(piece_t)*pieces_max);
 	if (!pieces) {
+		free_data(0UL);
 		return EXIT_FAILURE;
 	}
 	column_nodes_n1 = grid_cells_n1+pieces_n;
@@ -107,7 +101,7 @@ unsigned long grid_cells_n2, pieces_n, pieces_max, column_nodes_n1, column_nodes
 	row_nodes_n = 0;
 	pieces_r = 0;
 	for (i = 0; i < pieces_n; i++) {
-		if (!read_piece(&pieces[pieces_r], i)) {
+		if (!read_piece(pieces+pieces_r, i)) {
 			free_data(pieces_r);
 			return EXIT_FAILURE;
 		}
@@ -116,13 +110,13 @@ unsigned long grid_cells_n2, pieces_n, pieces_max, column_nodes_n1, column_nodes
 		pieces_r++;
 		j = 1;
 		do {
-			if (!rotate_piece(&pieces[pieces_r-1], &pieces[pieces_r])) {
+			if (!rotate_piece(pieces+pieces_r-1, pieces+pieces_r)) {
 				free_data(pieces_r);
 				return EXIT_FAILURE;
 			}
-			r = compare_pieces(&pieces[piece_f], &pieces[pieces_r]);
+			r = compare_pieces(pieces+piece_f, pieces+pieces_r);
 			for (k = piece_f+1; k < pieces_r && !r; k++) {
-				r = compare_pieces(&pieces[k], &pieces[pieces_r]);
+				r = compare_pieces(pieces+k, pieces+pieces_r);
 			}
 			if (!r) {
 				row_nodes_n += pieces[pieces_r].row_nodes_n;
@@ -130,20 +124,20 @@ unsigned long grid_cells_n2, pieces_n, pieces_max, column_nodes_n1, column_nodes
 				j++;
 			}
 			else {
-				free_piece(&pieces[pieces_r]);
+				free_piece(pieces+pieces_r);
 			}
 		}
 		while (j < 4 && !r);
 		piece_l = pieces_r;
 		j = piece_f;
 		do {
-			if (!flip_piece(&pieces[j], &pieces[pieces_r])) {
+			if (!flip_piece(pieces+j, pieces+pieces_r)) {
 				free_data(pieces_r);
 				return EXIT_FAILURE;
 			}
-			r = compare_pieces(&pieces[piece_f], &pieces[pieces_r]);
+			r = compare_pieces(pieces+piece_f, pieces+pieces_r);
 			for (k = piece_f+1; k < piece_l && !r; k++) {
-				r = compare_pieces(&pieces[k], &pieces[pieces_r]);
+				r = compare_pieces(pieces+k, pieces+pieces_r);
 			}
 			if (!r) {
 				row_nodes_n += pieces[pieces_r].row_nodes_n;
@@ -151,7 +145,7 @@ unsigned long grid_cells_n2, pieces_n, pieces_max, column_nodes_n1, column_nodes
 				j++;
 			}
 			else {
-				free_piece(&pieces[pieces_r]);
+				free_piece(pieces+pieces_r);
 			}
 		}
 		while (j < piece_l && !r);
@@ -168,26 +162,26 @@ unsigned long grid_cells_n2, pieces_n, pieces_max, column_nodes_n1, column_nodes
 		return EXIT_FAILURE;
 	}
 	for (i = column_nodes_n2; i < nodes_n; i++) {
-		nodes[i].row_node = &row_nodes[i-column_nodes_n2];
+		nodes[i].row_node = row_nodes+i-column_nodes_n2;
 	}
 	tops = malloc(sizeof(node_t *)*column_nodes_n1);
 	if (!tops) {
 		free_data(pieces_r);
 		return EXIT_FAILURE;
 	}
-	header = &nodes[column_nodes_n1];
+	header = nodes+column_nodes_n1;
 	set_column_node(nodes, header);
 	for (i = 0; i < column_nodes_n1; i++) {
-		set_column_node(&nodes[i+1], &nodes[i]);
-		tops[i] = &nodes[i];
+		set_column_node(nodes+i+1, nodes+i);
+		tops[i] = nodes+i;
 	}
 	row_node = header+1;
 	for (i = 0; i < pieces_r; i++) {
-		print_piece(&pieces[i]);
-		set_piece_row_nodes(&pieces[i]);
+		print_piece(pieces+i);
+		set_piece_row_nodes(pieces+i);
 	}
 	for (i = 0; i < column_nodes_n1; i++) {
-		link_top(&nodes[i], tops[i]);
+		link_top(nodes+i, tops[i]);
 	}
 	dlx_search();
 	printf("\nCost %lu\nSolutions %lu\n", cost, solutions);
@@ -198,12 +192,7 @@ unsigned long grid_cells_n2, pieces_n, pieces_max, column_nodes_n1, column_nodes
 char *read_piece(piece_t *piece, unsigned long number) {
 int c;
 unsigned long rows, columns, cell, i, j;
-	scanf("%lu", &rows);
-	if (!rows) {
-		return NULL;
-	}
-	scanf("%lu", &columns);
-	if (!columns) {
+	if (scanf("%lu%lu", &rows, &columns) != 2 || !rows || !columns) {
 		return NULL;
 	}
 	while (fgetc(stdin) != '\n');
@@ -309,7 +298,7 @@ unsigned long i;
 	}
 	if (pieces) {
 		for (i = 0; i < pieces_r; i++) {
-			free_piece(&pieces[i]);
+			free_piece(pieces+i);
 		}
 		FREE(pieces);
 	}
@@ -375,8 +364,7 @@ void link_left(node_t *node, node_t *left) {
 }
 
 void print_piece(piece_t *piece) {
-	printf("\nPiece %lu\nSize %lux%lu\n", piece->number+1, piece->rows, piece->columns1);
-	printf("%s", piece->cells);
+	printf("\nPiece %lu\nSize %lux%lu\n%s", piece->number+1, piece->rows, piece->columns1, piece->cells);
 }
 
 void set_piece_row_nodes(piece_t *piece) {
@@ -400,7 +388,7 @@ unsigned long i;
 void set_row_node(unsigned long grid_origin, piece_t *piece, unsigned long column, node_t *left) {
 	row_node->row_node->grid_origin = grid_origin;
 	row_node->row_node->piece = piece;
-	row_node->row_node->column = &nodes[column];
+	row_node->row_node->column = nodes+column;
 	link_left(row_node, left);
 	link_top(row_node, tops[column]);
 	tops[column] = row_node++;
